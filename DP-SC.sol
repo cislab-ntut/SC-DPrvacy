@@ -10,11 +10,16 @@ contract DPSC {
     User[] public users;
     Service[] public services;
 
-    event UserAdded(address UserAddress, string UserMessage);
+    event UserAdded(address UserAddress);
+    event DataAdded(address UserAddress, string UserMessage);
     event UserRemoved(address UserAddress);
     event ServiceAdded(address ServiceAddress);
     event ServiceRemoved(address ServiceAddress);
-
+    event AuthorizationSeted(address ServiceAddress);
+    event AuthorizationRevoked(address ServiceAddress);
+    event DataHandled(address ServiceAddress, address UserAddress);
+    event InfoGeted(address UserAddress, string UserMessage, uint UserSince);
+    
     struct User {
         address user;
         string message;
@@ -39,24 +44,30 @@ contract DPSC {
 
     function DPSC () public {
         owner = msg.sender;
-        addUser(0, "");
-        addUser(owner, 'Creator and Owner of Smart Contract');
+        addUser(0);
+        addUser(owner);
+        addData(owner, 'Creator and Owner of Smart Contract');
         numberOfUsers = 0;
         addService(0);
         numberOfServices = 0;
     }
 
 
-    function addUser(address _userAddress, string _userMessage) onlyOwner public {
+    function addUser(address _userAddress) onlyOwner public {
         uint id = userId[_userAddress];
         if (id == 0) {
             userId[_userAddress] = users.length;
             id = users.length++;
         }
-        users[id] = User({user: _userAddress, userSince: now, message: _userMessage});
-        UserAdded(_userAddress, _userMessage);
+        users[id] = User({user: _userAddress, userSince: now, message: ""});
+        UserAdded(_userAddress);
         numberOfUsers++;
-        //加密数据
+    }
+
+     function addData(address _userAddress, string _userMessage) onlyUsers public {
+        uint id = userId[_userAddress];
+        users[id].message = _userMessage;
+        DataAdded(_userAddress, _userMessage);
     }
 
     function removeUser(address _userAddress) onlyOwner public {
@@ -96,22 +107,32 @@ contract DPSC {
         require(ServiceId[_serviceAddress] != 0); 
         uint sid = ServiceId[_serviceAddress];
         services[sid].permission = true;
+        AuthorizationSeted(_serviceAddress);
     }
 
     function revokeAuthorization(address _serviceAddress) onlyUsers public {
         require(ServiceId[_serviceAddress] != 0); 
         uint sid = ServiceId[_serviceAddress];
         services[sid].permission = false;
+        AuthorizationRevoked(_serviceAddress);
     }
 
-    function handleData(address _serviceAddress, address _userAddress) public {
+    function handleData(address _serviceAddress, address _userAddress) public constant returns (string) {
         require(ServiceId[_serviceAddress] != 0); 
         uint sid = ServiceId[_serviceAddress];
         uint id = userId[_userAddress];
-        if(services[sid].permission == true) {
-            throw;
-            //解密数据users[id].message
-        }
+        if(services[sid].permission == true)
+            return (users[id].message);
+        else
+            return ("No Permission!");
+        DataHandled(_serviceAddress, _userAddress);
     }
 
+    function getInfo(address _userAddress) public constant returns (string, uint) {
+        uint id = userId[_userAddress];
+        string userMessage = users[id].message;
+        uint userSin = users[id].userSince;
+        return (userMessage, userSin);
+        InfoGeted(_userAddress, userMessage, userSin);
+   } 
 }
